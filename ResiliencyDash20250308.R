@@ -26,8 +26,6 @@ library(leaflet)
 library(reshape2)
 
 #Github PAT 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
-
-
 #For Rosalie or Peggy - set the file path accordingly (look at the change to Q4 at the end, Peggy)
 setwd("C:/Users/MMcWeeney/Potomac Institute for Policy Studies/AF Industrial Base - AQX OCEA - Documents/AQX OCEA/CLIN008/06DeliverableDrafts/Q4")
 #setwd("/Users/rosalieloewen/Library/CloudStorage/OneDrive-PotomacInstituteforPolicyStudies/AQX OCEA/CLIN008/06DeliverableDrafts/Q4")
