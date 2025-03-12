@@ -5,7 +5,7 @@ options(scipen=999) #disables scientific notation
 #install.packages("ggalluvial")
 #install.packages("stringdist") #For Fuzzy Match
 #install.packages("viridis")
-#install.packages("DT")
+install.packages("DT")
 #install.packages("ZipcodeR)
 #install.packages("geosphere")
 
@@ -26,7 +26,7 @@ library(leaflet)
 library(reshape2)
 
 #For Rosalie or Peggy - set the file path accordingly (look at the change to Q4 at the end, Peggy)
-setwd("C:/Users/MMcWeeney/Potomac Institute for Policy Studies/AF Industrial Base - AQX OCEA - Documents/AQX OCEA/CLIN008/06DeliverableDrafts/Q4")
+#setwd("C:/Users/MMcWeeney/Potomac Institute for Policy Studies/AF Industrial Base - AQX OCEA - Documents/AQX OCEA/CLIN008/06DeliverableDrafts/Q4")
 #setwd("/Users/rosalieloewen/Library/CloudStorage/OneDrive-PotomacInstituteforPolicyStudies/AQX OCEA/CLIN008/06DeliverableDrafts/Q4")
 file_path<-  "/Users/rosalieloewen/Library/CloudStorage/OneDrive-PotomacInstituteforPolicyStudies/AQX OCEA/CLIN008/06DeliverableDrafts/Q4"
 
@@ -37,6 +37,7 @@ file_path<-  "/Users/rosalieloewen/Library/CloudStorage/OneDrive-PotomacInstitut
 prime_all_dummy <- fread("/Users/rosalieloewen//Library/CloudStorage/OneDrive-PotomacInstituteforPolicyStudies/AQX OCEA/CLIN008/06DeliverableDrafts/Q4/prime_all_dummy5C.csv")
 #prime_all_dummy <- fread("C:/Users/MMcWeeney/Potomac Institute for Policy Studies/AF Industrial Base - AQX OCEA - Documents/AQX OCEA/CLIN008/06DeliverableDrafts/Q4/prime_all_dummy5C.csv")
 #prime_all_dummy <- fread("/Users/rosalieloewen//Library/CloudStorage/OneDrive-PotomacInstituteforPolicyStudies/AQX OCEA/CLIN008/06DeliverableDrafts/Q4/prime_all_dummy10K.csv")
+prime_all_dummy <- fread("C:/Users/MMcWeeney/Potomac Institute for Policy Studies/AF Industrial Base - AQX OCEA - Documents/AQX OCEA/CLIN008/06DeliverableDrafts/Q4/prime_all_dummy10K.csv")
 prime_all_dummy <- fread("/Users/rosalieloewen//Library/CloudStorage/OneDrive-PotomacInstituteforPolicyStudies/AQX OCEA/CLIN008/06DeliverableDrafts/Q4/prime_all_dummy100K.csv")
 
 #redefine prime_all depending on which dataset you chose
@@ -68,7 +69,7 @@ prime_naics_lookup <- prime_all[, .(naics_description =
 
 #This is the official lookup document from the department of commerce
 NAICS_lookup <- fread("/Users/rosalieloewen//Library/CloudStorage/OneDrive-PotomacInstituteforPolicyStudies/AQX OCEA/CLIN008/06DeliverableDrafts/Q3/Resilience/ContractDataRaw/NAICS_lookup.csv")
-#NAICS_lookup <- fread("C:/Users/MMcWeeney/Potomac Institute for Policy Studies/AF Industrial Base - AQX OCEA - Documents/AQX OCEA/CLIN008/06DeliverableDrafts/Q3/Resilience/ContractDataRaw/NAICS_lookup.csv")
+NAICS_lookup <- fread("C:/Users/MMcWeeney/Potomac Institute for Policy Studies/AF Industrial Base - AQX OCEA - Documents/AQX OCEA/CLIN008/06DeliverableDrafts/Q3/Resilience/ContractDataRaw/NAICS_lookup.csv")
 
 NAICS_lookup[, naics_code := `2022 NAICS US   Code`]
 NAICS_lookup[, naics_description := `2022 NAICS US Title`]
@@ -570,7 +571,7 @@ ggplot(DISP_by_NAICS, aes(x = decile, y = dispersion_metric)) +
   theme_minimal()
 
 #Create the outlier list report
-DISPoutlier_list <- DISP_by_NAICS[outlier == TRUE, .(
+GeoDISPoutlier_list <- DISP_by_NAICS[outlier == TRUE, .(
   naics_code,
   dispersion_metric,
   total_pos,
@@ -581,10 +582,10 @@ DISPoutlier_list <- DISP_by_NAICS[outlier == TRUE, .(
 
 # Perform the lookup in-place to add NAICS descriptions
 #Apply the recursive lookup function to the list
-DISPoutlier_list[, naics_description := sapply(naics_code, lookup_naics_recursive)]
+GeoDISPoutlier_list[, naics_description := sapply(naics_code, lookup_naics_recursive)]
 
 #make a nice table
-datatable(DISPoutlier_list, 
+datatable(GeoDISPoutlier_list, 
           extensions = 'Buttons',
           options = list(
             pageLength = 20,
@@ -598,15 +599,23 @@ datatable(DISPoutlier_list,
 
 #Create a map...
 
-leaflet(data = dt) %>% 
+# Clean data by removing rows with invalid lat/lon
+dt_clean <- dt[!is.na(dt$lat) & !is.na(dt$lng) &
+               dt$lat >= -90 & dt$lat <= 90 & 
+               dt$lng >= -180 & dt$lng <= 180, ]
+
+# Create the leaflet map with cleaned data
+map <- leaflet(data = dt_clean) %>% 
   addTiles() %>% 
   addCircleMarkers(
-    ~lng, ~lat,
-    radius = ~sqrt(FACpos)/(.02*nrow(dt)),  # adjust scaling as needed
-    popup = ~paste("Zip:", zip, "<br>Contract Dollars:", FACpos)
+    ~lng, ~lat, 
+    radius = ~sqrt(FACpos)/(.02 * nrow(dt_clean)),  # Adjust scaling of marker size
+    popup = ~paste("<b>Zip:</b>", zip, "<br><b>Contract Dollars:</b>", FACpos),  
+    color = "blue", 
+    fillOpacity = 0.6  
   ) %>%
-  setView(lng = -96, lat = 39, zoom = 3.5)
-
+  setView(lng = -96, lat = 39, zoom = 3.5) 
+saveWidget(map, "my_map.html")
 
 #Create a composite score for the YOY.  
 YOYComp<-merge(merge(MDISPYOY, SFYOY, by = "action_date_fiscal_year", all = TRUE),
@@ -631,3 +640,35 @@ ggplot(merged_long, aes(x = as.factor(action_date_fiscal_year), y = value, fill 
        x = "Fiscal Year",
        y = "Composite Metric") +
   theme_minimal()
+
+#NAICS Code table
+
+#For dispersion MDispReport
+#Table by NAICS Code of company, # of contracts, size, geographic location, age, parent
+#For NAICS code in MDispReport
+# 
+unique_naics_codes <- unique(DISPoutlier_list$naics_code)
+
+DispCompanies <- prime_all %>%
+  filter(naics_code %in% unique_naics_codes) %>%
+  select(naics_code, naics_description, recipient_name, action_date_fiscal_year, federal_action_obligation, zip)
+
+
+# View the filtered data
+print(DispCompanies)
+
+#Success/Fail Ratio SFResult
+#
+unique_naics_codesSF <- unique(SFoutlier_list$naics_code)
+
+SFResultCompanies <- prime_all %>%
+  filter(naics_code %in% unique_naics_codesSF) %>%
+  select(naics_code, naics_description, recipient_name, action_date_fiscal_year, federal_action_obligation, zip)
+
+#Geographic Dispersion Result
+
+unique_naics_codesGD <- unique(GeoDISPoutlier_list$naics_code)
+
+GDResultCompanies <- prime_all %>%
+  filter(naics_code %in% unique_naics_codesGD) %>%
+  select(naics_code, naics_description, recipient_name, action_date_fiscal_year, federal_action_obligation, zip)
